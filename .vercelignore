@@ -1,0 +1,32 @@
+# Files to ignore in Vercel deployment
+
+# Development files
+.env.local
+.env.development
+temp.env
+
+# Build artifacts (handled automatically)
+.next
+node_modules
+
+# Tests
+tests/
+*.test.ts
+*.test.tsx
+*.spec.ts
+
+# Documentation (optional - uncomment if you want to exclude)
+# README.md
+# CHANGELOG.md
+# DEPLOYMENT.md
+
+# Scripts (keep these for deployment)
+# scripts/
+
+# Backup files
+*.backup
+package.json.backup
+
+# Repomix output
+repomix-output.xml
+
