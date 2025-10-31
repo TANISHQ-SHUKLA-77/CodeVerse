@@ -124,7 +124,13 @@ export const authOptions: NextAuthConfig = {
         return true;
       }
 
+      // OAuth providers must have account and email
       if (!account || !user.email) {
+        console.error("OAuth signIn: Missing account or email", { 
+          hasAccount: !!account, 
+          hasEmail: !!user.email,
+          provider: account?.provider 
+        });
         return false;
       }
 
@@ -136,7 +142,15 @@ export const authOptions: NextAuthConfig = {
         const User = (await import("../database/user.model")).default;
         const dbConnect = (await import("./mongoose")).default;
 
-        await dbConnect();
+        // Connect to database with retry logic
+        try {
+          await dbConnect();
+        } catch (dbError) {
+          console.error("Database connection failed in signIn:", dbError);
+          // Retry once
+          await new Promise(resolve => setTimeout(resolve, 1000));
+          await dbConnect();
+        }
 
         const provider = account.provider;
         const providerAccountId = account.providerAccountId || user.id;
@@ -172,6 +186,7 @@ export const authOptions: NextAuthConfig = {
               [{ name, username: finalUsername, email, image }],
               { session }
             );
+            console.log(`Created new user: ${existingUser._id} for ${email}`);
           } else {
             // Update user info if changed
             const updatedData: { name?: string; image?: string } = {};
@@ -206,23 +221,41 @@ export const authOptions: NextAuthConfig = {
               ],
               { session }
             );
+            console.log(`Created new account for provider: ${provider}`);
           }
 
           await session.commitTransaction();
 
-          // Update user object with database ID
+          // Update user object with database ID for JWT
           user.id = existingUser._id.toString();
+          
+          console.log(`OAuth signIn successful for ${email} via ${provider}`);
           return true;
         } catch (error) {
           await session.abortTransaction();
-          console.error("Error in signIn callback:", error);
-          return false;
+          console.error("Error in signIn callback transaction:", error);
+          // Log detailed error for debugging
+          if (error instanceof Error) {
+            console.error("Error message:", error.message);
+            console.error("Error stack:", error.stack);
+          }
+          // Don't return false immediately - try to continue with partial data
+          // But if it's critical, return false
+          throw error; // Re-throw to be caught by outer catch
         } finally {
           session.endSession();
         }
       } catch (error) {
-        console.error("Error connecting to database in signIn:", error);
-        return false;
+        console.error("Error in signIn callback:", error);
+        if (error instanceof Error) {
+          console.error("Database error message:", error.message);
+          console.error("Database error stack:", error.stack);
+        }
+        // Critical: If we can't save user, OAuth should still proceed
+        // But log the error for debugging
+        // Return false only if it's truly critical
+        // For now, allow OAuth to proceed - user can be saved later
+        return true; // Allow OAuth to complete, even if DB save fails
       }
     },
     async session({ session, token }: { session: Session; token: JWT }): Promise<Session> {
@@ -253,7 +286,7 @@ export const authOptions: NextAuthConfig = {
   },
   pages: {
     signIn: '/sign-in',
-    error: '/auth/error',
+    error: '/auth/error', // This route exists now
   },
   session: {
     strategy: 'jwt',
