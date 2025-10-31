@@ -17,7 +17,43 @@ if (!process.env.AUTH_SECRET && !process.env.NEXTAUTH_SECRET) {
   throw new Error('AUTH_SECRET or NEXTAUTH_SECRET must be set in environment variables');
 }
 
+// Get base URL from environment or construct from headers
+function getBaseUrl(): string {
+  // Priority 1: Explicit NEXTAUTH_URL (highest priority)
+  if (process.env.NEXTAUTH_URL) {
+    const url = process.env.NEXTAUTH_URL.trim();
+    // Remove trailing slash
+    return url.endsWith('/') ? url.slice(0, -1) : url;
+  }
+  
+  // Priority 2: NEXT_PUBLIC_APP_URL
+  if (process.env.NEXT_PUBLIC_APP_URL) {
+    const url = process.env.NEXT_PUBLIC_APP_URL.trim();
+    return url.endsWith('/') ? url.slice(0, -1) : url;
+  }
+  
+  // Priority 3: Vercel auto-detection
+  if (process.env.VERCEL_URL) {
+    return `https://${process.env.VERCEL_URL}`;
+  }
+  
+  // Priority 4: VERCEL_PROJECT_PRODUCTION_URL (if available)
+  if (process.env.VERCEL_PROJECT_PRODUCTION_URL) {
+    return process.env.VERCEL_PROJECT_PRODUCTION_URL;
+  }
+  
+  // Last resort: Only in development, never in production
+  if (process.env.NODE_ENV === 'development') {
+    return 'http://localhost:3000';
+  }
+  
+  // Production fallback - should never reach here if env vars are set
+  console.error('⚠️ WARNING: No base URL found! Set NEXTAUTH_URL environment variable.');
+  return 'http://localhost:3000'; // Fallback, but should warn
+}
+
 export const authOptions: NextAuthConfig = {
+  basePath: '/api/auth',
   providers: [
     GitHub({
       clientId: process.env.AUTH_GITHUB_ID!,
@@ -226,6 +262,9 @@ export const authOptions: NextAuthConfig = {
   secret: process.env.AUTH_SECRET || process.env.NEXTAUTH_SECRET,
   debug: process.env.NODE_ENV === 'development',
   trustHost: true,
+  // Explicitly set the base URL for OAuth callbacks
+  // In NextAuth v5, we need to use url property for proper OAuth redirect URIs
+  url: getBaseUrl(),
 };
 
 // Helper function to get auth options

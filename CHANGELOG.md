@@ -2,6 +2,25 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.1.7] - 2025-10-31
+### Fixed
+- **OAuth Runtime URL Detection:** Fixed critical OAuth redirect issue by implementing runtime URL detection
+  - Added dynamic base URL detection from request headers in `app/api/auth/[...nextauth]/route.ts`
+  - Each OAuth request now dynamically detects base URL from request headers (`host` + `x-forwarded-proto`)
+  - Priority: `NEXTAUTH_URL` → `NEXT_PUBLIC_APP_URL` → Request headers → `VERCEL_URL` → localhost
+  - This fixes the issue where production was still using `localhost:3001` redirect URIs
+  - NextAuth configuration now created per-request with correct base URL
+  - **CRITICAL:** Ensure `NEXTAUTH_URL` is set in Vercel Production environment
+
+## [0.1.6] - 2025-10-31
+### Fixed
+- **OAuth Authentication:** Fixed GitHub and Google OAuth redirect issues
+  - Added explicit `baseUrl` detection function (`getBaseUrl()`) in auth config
+  - Added `url: getBaseUrl()` to authOptions for proper base URL configuration
+  - Added `basePath: '/api/auth'` to ensure correct route handling
+  - Proper environment variable priority: `NEXTAUTH_URL` → `NEXT_PUBLIC_APP_URL` → `VERCEL_URL` → localhost
+  - This fixes the issue where OAuth was using `localhost` redirect URIs in production
+
 ## [0.1.5] - 2025-10-31
 ### Added
 - **Deployment Setup:** Complete Vercel deployment configuration
